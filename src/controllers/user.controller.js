@@ -16,15 +16,18 @@ const registerUser = asyncHandler(async (req, res) => {
   // return res
 
   const { fullName, email, userName, password } = req.body;
-  console.log("email: ", email);
+//   console.log("Request body:", { fullName, email, userName });
+//   console.log("Request files:", req.files);
 
+  // Validate required fields
   if (
     [fullName, email, userName, password].some((field) => field?.trim() === "")
   ) {
     throw new ApiError(400, "All fields are required");
   }
 
-  const existedUser = User.findOne({
+  // Check if user already exists
+  const existedUser = await User.findOne({
     $or: [{ userName }, { email }],
   });
 
@@ -32,20 +35,40 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, "User with email or username already exists");
   }
 
+  // Validate avatar file
+  if (!req.files || !req.files.avatar || !req.files.avatar[0]?.path) {
+    throw new ApiError(400, "Avatar file is required");
+  }
+
   const avatarLocalPath = req.files?.avatar[0]?.path;
   const coverImageLocalPath = req.files?.coverImage[0]?.path;
+
+//   console.log("Avatar local path:", avatarLocalPath);
+//   console.log("Cover image local path:", coverImageLocalPath);
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is required");
   }
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
-  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  // Upload avatar to Cloudinary
+//   const avatar = await uploadOnCloudinary(avatarLocalPath);
+//   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
-  if (!avatar) {
-    throw new ApiError(400, "Avatar file is required");
+//   if (!avatar) {
+//     throw new ApiError(400, "Avatar file is required");
+//   }
+
+// Upload avatar to Cloudinary
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!avatar?.url) {
+    throw new ApiError(400, "Failed to upload avatar to Cloudinary");
   }
 
+  // Upload cover image (optional)
+  const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
+
+
+  // Create user in database
   const user = await User.create({
     fullName,
     avatar: avatar.url,
@@ -55,6 +78,8 @@ const registerUser = asyncHandler(async (req, res) => {
     userName: userName.toLowerCase(),
   });
 
+
+  // Fetch created user, excluding sensitive fields
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
@@ -63,9 +88,10 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Something went worong while registring the user");
   }
 
-  return res.status(201).json(
-    new ApiResponse(200, createdUser, "User registered Successfully")
-  )
+  // Return response
+  return res
+    .status(201)
+    .json(new ApiResponse(200, createdUser, "User registered Successfully"));
 });
 
 export { registerUser };
