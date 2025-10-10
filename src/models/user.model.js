@@ -6,7 +6,7 @@ import bcrypt from "bcrypt"; // Bcrypt for password hashing
 // Define the user schema with fields and their configurations
 const userSchema = new mongoose.Schema(
   {
-    username: {
+    userName: {
       type: String, // Username stored as a string
       required: true, // Mandatory field
       unique: true, // Ensures username is unique in the database
